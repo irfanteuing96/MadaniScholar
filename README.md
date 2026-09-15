@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pengawalan Kuliah
 
-## Getting Started
+Platform pengawalan mahasiswa dari pendaftaran sampai wisuda, untuk beberapa kampus sekaligus.
 
-First, run the development server:
+## Fitur
+
+- **Sisi Calon Mahasiswa / Mahasiswa** — daftar mandiri, isi biodata, lihat status & posisi tahap secara real-time (timeline dari Berkas Masuk sampai Wisuda), lihat IPK & riwayat nilai per semester.
+- **Sisi Admin** — dashboard ringkasan per kampus/status, papan status (kanban) untuk melihat posisi semua mahasiswa di pipeline, data mahasiswa lengkap dengan pencarian & filter, kelola perpindahan tahap dan input nilai semester.
+- Pipeline tetap terdiri dari 12 tahap: Berkas Masuk → Verifikasi Berkas → Tes Masuk → Pengumuman → Daftar Ulang → OSPEK → Aktif Kuliah → Pengajuan Judul TA → Bimbingan TA → Sidang → Yudisium → Wisuda.
+
+## Stack
+
+- Next.js 16 (App Router, TypeScript, Tailwind CSS v4)
+- Prisma 7 + SQLite (lokal, via driver adapter `@prisma/adapter-better-sqlite3`) — tinggal ganti provider ke PostgreSQL/MySQL saat deploy ke server produksi
+- Auth sendiri (bukan NextAuth): password di-hash dengan bcrypt, sesi berbasis JWT (jose) di cookie httpOnly
+
+## Menjalankan secara lokal
 
 ```bash
+npm install
+npm run db:push    # membuat skema database SQLite
+npm run db:seed    # isi data contoh (3 kampus, 12 mahasiswa, 1 admin)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Akun demo (setelah `npm run db:seed`)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Peran | Email | Password |
+| --- | --- | --- |
+| Admin | admin@pengawalankuliah.id | admin1234 |
+| Mahasiswa (contoh) | putri.ramadhani@student.demo | mahasiswa123 |
 
-## Learn More
+Semua mahasiswa contoh lain pakai password yang sama: `mahasiswa123`. Lihat `prisma/seed.ts` untuk daftar email lengkapnya.
 
-To learn more about Next.js, take a look at the following resources:
+## Struktur penting
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `prisma/schema.prisma` — skema database
+- `prisma/seed.ts` — data contoh
+- `src/lib/stages.ts` — definisi 12 tahap pipeline (ubah di sini kalau mau menambah/mengubah tahap)
+- `src/lib/auth.ts` — hashing password & sesi JWT
+- `src/proxy.ts` — pelindung rute `/admin/*` dan `/portal/*` (pengganti `middleware.ts` di Next 16)
+- `src/app/admin/*` — halaman admin
+- `src/app/portal/*` — halaman mahasiswa
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Menuju produksi
 
-## Deploy on Vercel
+Sebelum deploy ke server sendiri:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Ganti `datasource` di `prisma/schema.prisma` dan `prisma.config.ts` dari SQLite ke PostgreSQL/MySQL (SQLite dipakai supaya development lokal tidak butuh server database terpisah).
+2. Set `JWT_SECRET` di `.env` ke string acak yang panjang dan rahasia (jangan pakai nilai contoh).
+3. Pertimbangkan menambah: verifikasi email, upload berkas pendaftaran (KTP/ijazah/dsb), halaman admin untuk kelola kampus & jurusan, dan notifikasi (email/WhatsApp) saat status berubah.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Keterbatasan versi ini
+
+- Daftar kampus & jurusan masih di-seed manual (belum ada halaman admin untuk CRUD kampus).
+- Belum ada upload berkas — status "Berkas Masuk" baru berupa checkpoint administratif.
+- Data tersimpan lokal (SQLite) untuk keperluan pengembangan, sesuai permintaan awal.

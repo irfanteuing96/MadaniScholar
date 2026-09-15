@@ -1,0 +1,115 @@
+// Skema database - Platform Pengawalan Kuliah
+// SQLite untuk pengembangan lokal, tinggal ganti provider ke "postgresql" saat deploy.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  ADMIN
+  STUDENT
+}
+
+enum StudentStatus {
+  CALON // masih proses pendaftaran, belum diputuskan
+  DITERIMA // lulus seleksi, belum daftar ulang
+  DITOLAK // tidak lolos seleksi
+  AKTIF // aktif kuliah
+  LULUS // sudah wisuda
+  NONAKTIF // cuti / mengundurkan diri / DO
+}
+
+// Status per tahap dalam timeline mahasiswa
+enum StageStatus {
+  BELUM // belum dimulai
+  BERJALAN // sedang diproses
+  LULUS
+  GAGAL
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  student Student?
+}
+
+model Campus {
+  id      String  @id @default(cuid())
+  name    String
+  code    String  @unique
+  address String?
+  city    String?
+
+  majors   Major[]
+  students Student[]
+}
+
+model Major {
+  id       String @id @default(cuid())
+  name     String
+  campusId String
+  campus   Campus @relation(fields: [campusId], references: [id], onDelete: Cascade)
+
+  students Student[]
+
+  @@unique([campusId, name])
+}
+
+model Student {
+  id            String        @id @default(cuid())
+  userId        String        @unique
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  noPendaftaran String        @unique
+  nim           String?       @unique // diisi setelah daftar ulang
+  fullName      String
+  campusId      String
+  campus        Campus        @relation(fields: [campusId], references: [id])
+  majorId       String
+  major         Major         @relation(fields: [majorId], references: [id])
+  angkatan      Int // tahun masuk
+  phone         String?
+  address       String?
+  birthPlace    String?
+  birthDate     DateTime?
+  photoUrl      String?
+  status        StudentStatus @default(CALON)
+  currentStage  String        @default("berkas_masuk") // key dari STAGES di src/lib/stages.ts
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  stageHistories StageHistory[]
+  semesters      Semester[]
+}
+
+model StageHistory {
+  id        String      @id @default(cuid())
+  studentId String
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  stageKey  String
+  status    StageStatus @default(BERJALAN)
+  note      String?
+  changedAt DateTime    @default(now())
+}
+
+model Semester {
+  id       String  @id @default(cuid())
+  studentId String
+  student  Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  number   Int // semester ke berapa
+  ips      Float? // indeks prestasi semester
+  sks      Int? // sks yang diambil semester ini
+  status   String  @default("BERJALAN") // BERJALAN | SELESAI
+
+  @@unique([studentId, number])
+}
