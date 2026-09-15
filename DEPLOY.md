@@ -48,6 +48,9 @@ cp deploy/.env.production.example .env
 openssl rand -base64 48
 nano .env   # edit JWT_SECRET
 
+# Generate Prisma Client dulu (wajib, sebelum push/seed/build)
+npx prisma generate
+
 # Buat skema database & (opsional) isi data contoh
 npm run db:push
 npm run db:seed     # lewati baris ini kalau tidak mau data contoh
