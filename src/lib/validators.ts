@@ -38,3 +38,16 @@ export const semesterSchema = z.object({
   sks: z.coerce.number().int().min(0).max(30).optional(),
   status: z.enum(["BERJALAN", "SELESAI"]),
 });
+
+export const createPaymentSchema = z.object({
+  studentId: z.string().min(1),
+  label: z.string().min(1, "Nama tagihan wajib diisi"),
+  amount: z.coerce.number().min(0, "Nominal tagihan wajib diisi"),
+  dueDate: z.string().optional(),
+  note: z.string().optional(),
+});
+
+export const recordPaymentSchema = z.object({
+  paymentId: z.string().min(1),
+  amountPaid: z.coerce.number().min(0, "Nominal tidak boleh negatif"),
+});

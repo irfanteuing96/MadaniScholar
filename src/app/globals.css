@@ -27,11 +27,48 @@
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
+  /* Grain halus di seluruh aplikasi — cukup untuk kesan "elegant", tidak mengganggu keterbacaan tabel/dashboard */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  background-repeat: repeat;
 }
 
 ::selection {
   background: var(--accent-soft);
   color: var(--foreground);
+}
+
+/* Titik-titik halus untuk area dekoratif (hero, panel login/register) */
+.bg-dot-grid {
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* Lingkaran blur warna untuk aksen dekoratif di halaman marketing/auth */
+.decor-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(64px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Scrollbar tipis & senada tema — dipakai di area yang bisa discroll
+   horizontal (stepper tahap, papan kanban, nav mobile) supaya tidak muncul
+   scrollbar klasik OS yang tebal/kurang pas dengan desainnya. */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.thin-scrollbar::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 9999px;
 }

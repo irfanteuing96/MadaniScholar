@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pengawalan Kuliah",
+  title: "Madani Scholar",
   description: "Platform pengawalan mahasiswa dari pendaftaran sampai wisuda",
 };
 

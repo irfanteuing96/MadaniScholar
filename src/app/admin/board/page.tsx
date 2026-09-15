@@ -3,16 +3,28 @@ import { db } from "@/lib/db";
 import { BOARD_GROUPS, getStage } from "@/lib/stages";
 import { CampusFilter } from "@/components/CampusFilter";
 import { StatusBadge } from "@/components/StatusBadge";
+import { FinanceBadge } from "@/components/FinanceBadge";
+import { ScopeTabs } from "@/components/ScopeTabs";
+import { financialStatus } from "@/lib/finance";
+import { parseScope, statusesForScope } from "@/lib/scope";
+import type { Prisma } from "@/generated/prisma/client";
 
 export default async function BoardPage({ searchParams }: PageProps<"/admin/board">) {
-  const { campus: campusId } = await searchParams;
-  const selectedCampus = Array.isArray(campusId) ? campusId[0] : campusId ?? "";
+  const sp = await searchParams;
+  const campusId = typeof sp.campus === "string" ? sp.campus : "";
+  const scope = parseScope(typeof sp.scope === "string" ? sp.scope : undefined);
+  const statuses = statusesForScope(scope);
+
+  const where: Prisma.StudentWhereInput = {
+    ...(campusId ? { campusId } : {}),
+    ...(statuses ? { status: { in: statuses } } : {}),
+  };
 
   const [campuses, students] = await Promise.all([
     db.campus.findMany({ orderBy: { name: "asc" } }),
     db.student.findMany({
-      where: selectedCampus ? { campusId: selectedCampus } : undefined,
-      include: { campus: true, major: true },
+      where,
+      include: { campus: true, major: true, payments: { select: { amount: true, amountPaid: true } } },
       orderBy: { updatedAt: "desc" },
     }),
   ]);
@@ -25,6 +37,9 @@ export default async function BoardPage({ searchParams }: PageProps<"/admin/boar
     students: active.filter((s) => getStage(s.currentStage)?.board === group.key),
   }));
 
+  const baseParams: Record<string, string> = {};
+  if (campusId) baseParams.campus = campusId;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -34,10 +49,13 @@ export default async function BoardPage({ searchParams }: PageProps<"/admin/boar
             Posisi setiap mahasiswa dalam pipeline pengawalan.
           </p>
         </div>
-        <CampusFilter campuses={campuses} value={selectedCampus} />
+        <div className="flex flex-wrap items-center gap-3">
+          <ScopeTabs basePath="/admin/board" params={baseParams} value={scope} />
+          <CampusFilter campuses={campuses} value={campusId} />
+        </div>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div className="thin-scrollbar flex gap-4 overflow-x-auto pb-4">
         {columns.map((col) => (
           <div key={col.key} className="w-72 shrink-0">
             <div className="flex items-center justify-between px-1">
@@ -65,6 +83,9 @@ export default async function BoardPage({ searchParams }: PageProps<"/admin/boar
                       {getStage(s.currentStage)?.label}
                     </span>
                     <StatusBadge status={s.status} />
+                  </div>
+                  <div className="mt-1.5">
+                    <FinanceBadge status={financialStatus(s.payments)} />
                   </div>
                 </Link>
               ))}

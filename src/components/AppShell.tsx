@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { logoutAction } from "@/lib/actions/auth";
+import { Logo } from "@/components/Logo";
 
 export type NavItem = { href: string; label: string };
 
@@ -17,12 +18,12 @@ export function AppShell({
   return (
     <div className="flex min-h-svh flex-1">
       <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-surface px-4 py-6 sm:flex">
-        <Link href="/" className="px-2 text-lg font-semibold tracking-tight">
-          Pengawalan Kuliah
-        </Link>
-        <p className="mt-1 px-2 text-xs uppercase tracking-wide text-foreground-muted">
-          {roleLabel}
-        </p>
+        <div className="bg-dot-grid rounded-2xl px-2 py-3">
+          <Link href="/">
+            <Logo className="h-10" />
+          </Link>
+          <p className="mt-1 text-xs uppercase tracking-wide text-foreground-muted">{roleLabel}</p>
+        </div>
 
         <nav className="mt-8 flex flex-col gap-1">
           {navItems.map((item) => (
@@ -49,17 +50,17 @@ export function AppShell({
         </div>
       </aside>
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <header className="border-b border-border bg-surface sm:hidden">
           <div className="flex items-center justify-between px-4 py-3">
-            <span className="font-semibold">Pengawalan Kuliah</span>
+            <Logo className="h-8" />
             <form action={logoutAction}>
               <button type="submit" className="text-sm text-foreground-muted">
                 Keluar
               </button>
             </form>
           </div>
-          <nav className="flex gap-1 overflow-x-auto px-2 pb-2">
+          <nav className="thin-scrollbar flex gap-1 overflow-x-auto px-2 pb-2">
             {navItems.map((item) => (
               <Link
                 key={item.href}

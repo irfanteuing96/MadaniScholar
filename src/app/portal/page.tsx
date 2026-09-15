@@ -1,10 +1,20 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { STAGES, stageProgressPercent } from "@/lib/stages";
+import { stageProgressPercent } from "@/lib/stages";
 import { computeIpk } from "@/lib/ipk";
+import { financialStatus, financeSummary, paymentLineStatus, paymentRemaining, formatRupiah } from "@/lib/finance";
 import { StatusBadge } from "@/components/StatusBadge";
+import { FinanceBadge } from "@/components/FinanceBadge";
+import { StageStepper } from "@/components/StageStepper";
+import { StageHistoryTable } from "@/components/StageHistoryTable";
 import { StatCard, Card } from "@/components/ui/Card";
+import {
+  advanceOwnStageAction,
+  upsertOwnSemesterAction,
+  createOwnPaymentAction,
+  recordOwnPaymentAction,
+} from "@/lib/actions/portal";
 
 export default async function PortalDashboard() {
   const session = await getSession();
@@ -17,16 +27,19 @@ export default async function PortalDashboard() {
       major: true,
       stageHistories: { orderBy: { changedAt: "asc" } },
       semesters: { orderBy: { number: "asc" } },
+      payments: { orderBy: { createdAt: "asc" } },
     },
   });
   if (!student) redirect("/login");
 
-  const latestByStage = new Map<string, (typeof student.stageHistories)[number]>();
-  for (const h of student.stageHistories) latestByStage.set(h.stageKey, h);
-
   const ipk = computeIpk(student.semesters);
   const activeSemester = student.semesters.at(-1);
   const progress = stageProgressPercent(student.currentStage);
+  const isFinished = student.status === "LULUS";
+  const canAct = !isFinished && student.status !== "DITOLAK" && student.status !== "NONAKTIF";
+  const showSemesterForm =
+    student.status === "AKTIF" || student.semesters.length > 0 || isFinished;
+  const summary = financeSummary(student.payments);
 
   return (
     <div className="space-y-8">
@@ -37,69 +50,81 @@ export default async function PortalDashboard() {
             {student.campus.name} · {student.major.name} · Angkatan {student.angkatan}
           </p>
         </div>
-        <StatusBadge status={student.status} />
+        <div className="flex gap-2">
+          <StatusBadge status={student.status} />
+          <FinanceBadge status={financialStatus(student.payments)} />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Progres Keseluruhan" value={`${progress}%`} />
-        <StatCard label="IPK" value={ipk ?? "-"} />
+        <StatCard label="Progres Keseluruhan" value={`${progress}%`} color="blue" />
+        <StatCard label="IPK" value={ipk ?? "-"} color="emerald" />
         <StatCard
           label="Semester Berjalan"
           value={activeSemester ? activeSemester.number : "-"}
+          color="violet"
         />
       </div>
 
       <Card className="p-5">
         <h2 className="font-semibold">Perjalanan Kuliah Kamu</h2>
-        <ol className="mt-5 space-y-0">
-          {STAGES.map((stage, idx) => {
-            const entry = latestByStage.get(stage.key);
-            const status = entry?.status ?? "BELUM";
-            const isLast = idx === STAGES.length - 1;
-            const dotClass =
-              status === "LULUS"
-                ? "bg-emerald-500"
-                : status === "BERJALAN"
-                  ? "bg-accent"
-                  : status === "GAGAL"
-                    ? "bg-red-500"
-                    : "bg-surface-muted border border-border";
+        <p className="mt-1 text-xs text-foreground-muted">
+          Update sendiri posisi kamu — pihak yang memantau di luar kampus tidak tahu progresmu
+          kecuali kamu yang kabari lewat sini.
+        </p>
+        <div className="mt-5">
+          <StageStepper currentStage={student.currentStage} history={student.stageHistories} />
+        </div>
 
-            return (
-              <li key={stage.key} className="flex gap-3">
-                <div className="flex flex-col items-center">
-                  <span className={`mt-1 h-3 w-3 shrink-0 rounded-full ${dotClass}`} />
-                  {!isLast && <span className="w-px flex-1 bg-border" />}
-                </div>
-                <div className="pb-5">
-                  <p
-                    className={
-                      status === "BELUM"
-                        ? "text-sm text-foreground-muted"
-                        : "text-sm font-medium"
-                    }
-                  >
-                    {stage.label}
-                  </p>
-                  {entry?.note && (
-                    <p className="text-xs text-foreground-muted">{entry.note}</p>
-                  )}
-                  {entry && status !== "BELUM" && (
-                    <p className="text-xs text-foreground-muted">
-                      {entry.changedAt.toLocaleDateString("id-ID")}
-                    </p>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
+        {canAct && (
+          <form action={advanceOwnStageAction} className="mt-5 flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-48">
+              <label className="text-xs font-medium text-foreground-muted" htmlFor="note">
+                Catatan (opsional)
+              </label>
+              <input
+                id="note"
+                name="note"
+                className="mt-1 w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm outline-none focus:border-accent"
+                placeholder="Catatan untuk tahap ini"
+              />
+            </div>
+            <button
+              type="submit"
+              name="status"
+              value="LULUS"
+              className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-dark"
+            >
+              Selesai, Lanjut Tahap Berikutnya
+            </button>
+            <button
+              type="submit"
+              name="status"
+              value="GAGAL"
+              className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+            >
+              Tandai Tidak Lolos
+            </button>
+          </form>
+        )}
+
+        <div className="mt-6 border-t border-border pt-4">
+          <StageHistoryTable history={student.stageHistories} />
+        </div>
       </Card>
 
-      {student.semesters.length > 0 && (
+      {showSemesterForm && (
         <Card className="p-5">
-          <h2 className="font-semibold">Riwayat Nilai</h2>
-          <div className="mt-4 overflow-x-auto">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Nilai Semester</h2>
+            {ipk != null && (
+              <span className="text-sm text-foreground-muted">
+                IPK saat ini: <span className="font-semibold text-foreground">{ipk}</span>
+              </span>
+            )}
+          </div>
+
+          <div className="thin-scrollbar mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-foreground-muted">
                 <tr>
@@ -118,11 +143,223 @@ export default async function PortalDashboard() {
                     <td className="py-2 pr-4">{sem.status}</td>
                   </tr>
                 ))}
+                {student.semesters.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-4 text-center text-foreground-muted">
+                      Belum ada data semester.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
+
+          <form
+            action={upsertOwnSemesterAction}
+            className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5 sm:items-end"
+          >
+            <div>
+              <label className="text-xs font-medium text-foreground-muted" htmlFor="number">
+                Semester
+              </label>
+              <input
+                id="number"
+                name="number"
+                type="number"
+                min={1}
+                max={14}
+                required
+                className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-foreground-muted" htmlFor="ips">
+                IPS
+              </label>
+              <input
+                id="ips"
+                name="ips"
+                type="number"
+                step="0.01"
+                min={0}
+                max={4}
+                className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-foreground-muted" htmlFor="sks">
+                SKS
+              </label>
+              <input
+                id="sks"
+                name="sks"
+                type="number"
+                min={0}
+                max={30}
+                className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-foreground-muted" htmlFor="status">
+                Status
+              </label>
+              <select
+                id="status"
+                name="status"
+                defaultValue="SELESAI"
+                className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+              >
+                <option value="BERJALAN">Berjalan</option>
+                <option value="SELESAI">Selesai</option>
+              </select>
+            </div>
+            <button
+              type="submit"
+              className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-dark"
+            >
+              Simpan
+            </button>
+          </form>
         </Card>
       )}
+
+      <Card className="p-5">
+        <h2 className="font-semibold">Status Keuangan</h2>
+        <p className="mt-1 text-xs text-foreground-muted">
+          Catat sendiri tagihan kampus kamu (SPP, biaya pendaftaran, dll) dan berapa yang sudah
+          dibayar, supaya pihak yang memantau tahu kalau ada tunggakan.
+        </p>
+
+        {student.payments.length > 0 && (
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <StatCard label="Total Tagihan" value={formatRupiah(summary.totalTagihan)} color="indigo" />
+            <StatCard label="Sudah Dibayar" value={formatRupiah(summary.totalDibayar)} color="emerald" />
+            <StatCard
+              label="Sisa Tunggakan"
+              value={formatRupiah(summary.totalSisa)}
+              color={summary.totalSisa > 0 ? "rose" : "teal"}
+            />
+          </div>
+        )}
+
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-xs uppercase tracking-wide text-foreground-muted">
+              <tr>
+                <th className="py-2 pr-4 font-medium">Tagihan</th>
+                <th className="py-2 pr-4 font-medium">Nominal</th>
+                <th className="py-2 pr-4 font-medium">Sisa</th>
+                <th className="py-2 pr-4 font-medium">Jatuh Tempo</th>
+                <th className="py-2 font-medium">Update Dibayar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {student.payments.map((p) => {
+                const sisa = paymentRemaining(p);
+                const status = paymentLineStatus(p);
+                return (
+                  <tr key={p.id} className="border-t border-border">
+                    <td className="py-2 pr-4">
+                      {p.label}
+                      <p
+                        className={
+                          status === "LUNAS"
+                            ? "text-xs font-medium text-emerald-600"
+                            : status === "SEBAGIAN"
+                              ? "text-xs font-medium text-amber-600"
+                              : "text-xs font-medium text-red-600"
+                        }
+                      >
+                        {status.replace("_", " ")}
+                      </p>
+                    </td>
+                    <td className="py-2 pr-4">{formatRupiah(p.amount)}</td>
+                    <td className={`py-2 pr-4 ${sisa > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                      {formatRupiah(sisa)}
+                    </td>
+                    <td className="py-2 pr-4 text-foreground-muted">
+                      {p.dueDate ? p.dueDate.toLocaleDateString("id-ID") : "-"}
+                    </td>
+                    <td className="py-2">
+                      <form action={recordOwnPaymentAction} className="flex items-center gap-2">
+                        <input type="hidden" name="paymentId" value={p.id} />
+                        <input
+                          type="number"
+                          name="amountPaid"
+                          min={0}
+                          defaultValue={p.amountPaid}
+                          className="w-28 rounded-lg border border-border bg-surface px-2 py-1 text-xs outline-none focus:border-accent"
+                        />
+                        <button
+                          type="submit"
+                          className="rounded-lg bg-surface-muted px-2.5 py-1 text-xs font-medium hover:bg-border"
+                        >
+                          Simpan
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                );
+              })}
+              {student.payments.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-4 text-center text-foreground-muted">
+                    Belum ada tagihan.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <form
+          action={createOwnPaymentAction}
+          className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5 sm:items-end"
+        >
+          <div className="col-span-2 sm:col-span-2">
+            <label className="text-xs font-medium text-foreground-muted" htmlFor="label">
+              Nama Tagihan
+            </label>
+            <input
+              id="label"
+              name="label"
+              required
+              placeholder="mis. SPP Semester 4"
+              className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-foreground-muted" htmlFor="amount">
+              Nominal Tagihan (Rp)
+            </label>
+            <input
+              id="amount"
+              name="amount"
+              type="number"
+              min={0}
+              required
+              className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-foreground-muted" htmlFor="dueDate">
+              Jatuh Tempo
+            </label>
+            <input
+              id="dueDate"
+              name="dueDate"
+              type="date"
+              className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-dark"
+          >
+            Tambah Tagihan
+          </button>
+        </form>
+      </Card>
     </div>
   );
 }

@@ -32,6 +32,7 @@ type StudentSeed = {
   stageKey: string;
   outcome?: "GAGAL_TES" | "DROPOUT" | "LULUS_WISUDA";
   semesters?: { number: number; ips: number; sks: number; status: "BERJALAN" | "SELESAI" }[];
+  payments?: { label: string; amount: number; amountPaid: number }[];
 };
 
 const STUDENTS: StudentSeed[] = [
@@ -42,6 +43,7 @@ const STUDENTS: StudentSeed[] = [
     majorName: "Teknik Informatika",
     angkatan: 2026,
     stageKey: "berkas_masuk",
+    payments: [{ label: "Biaya Pendaftaran", amount: 300000, amountPaid: 0 }],
   },
   {
     fullName: "Siti Nur Aini",
@@ -67,6 +69,7 @@ const STUDENTS: StudentSeed[] = [
     majorName: "Akuntansi",
     angkatan: 2026,
     stageKey: "pengumuman",
+    payments: [{ label: "Biaya Pendaftaran", amount: 300000, amountPaid: 300000 }],
   },
   {
     fullName: "Dewi Lestari",
@@ -75,6 +78,10 @@ const STUDENTS: StudentSeed[] = [
     majorName: "Teknik Elektro",
     angkatan: 2025,
     stageKey: "daftar_ulang",
+    payments: [
+      { label: "Biaya Pendaftaran", amount: 300000, amountPaid: 300000 },
+      { label: "Biaya Daftar Ulang", amount: 5000000, amountPaid: 2000000 },
+    ],
   },
   {
     fullName: "Andi Saputra",
@@ -96,6 +103,10 @@ const STUDENTS: StudentSeed[] = [
       { number: 1, ips: 2.8, sks: 20, status: "SELESAI" },
       { number: 2, ips: 2.6, sks: 18, status: "SELESAI" },
     ],
+    payments: [
+      { label: "SPP Semester 1", amount: 4000000, amountPaid: 4000000 },
+      { label: "SPP Semester 2", amount: 4000000, amountPaid: 0 },
+    ],
   },
   {
     fullName: "Putri Ramadhani",
@@ -108,6 +119,11 @@ const STUDENTS: StudentSeed[] = [
       { number: 1, ips: 3.6, sks: 21, status: "SELESAI" },
       { number: 2, ips: 3.75, sks: 22, status: "SELESAI" },
       { number: 3, ips: 3.5, sks: 20, status: "BERJALAN" },
+    ],
+    payments: [
+      { label: "SPP Semester 1", amount: 4000000, amountPaid: 4000000 },
+      { label: "SPP Semester 2", amount: 4000000, amountPaid: 4000000 },
+      { label: "SPP Semester 3", amount: 4000000, amountPaid: 1500000 },
     ],
   },
   {
@@ -125,6 +141,7 @@ const STUDENTS: StudentSeed[] = [
       { number: 5, ips: 3.55, sks: 21, status: "SELESAI" },
       { number: 6, ips: 3.62, sks: 20, status: "BERJALAN" },
     ],
+    payments: [{ label: "SPP Semester 6", amount: 4500000, amountPaid: 0 }],
   },
   {
     fullName: "Nadia Kusuma",
@@ -139,6 +156,7 @@ const STUDENTS: StudentSeed[] = [
       sks: 20,
       status: "SELESAI" as const,
     })),
+    payments: [{ label: "SPP Semester 7", amount: 4200000, amountPaid: 4200000 }],
   },
   {
     fullName: "Yusuf Hidayat",
@@ -153,6 +171,10 @@ const STUDENTS: StudentSeed[] = [
       sks: 22,
       status: "SELESAI" as const,
     })),
+    payments: [
+      { label: "SPP Semester 8", amount: 4500000, amountPaid: 1000000 },
+      { label: "Biaya Sidang Akhir", amount: 1500000, amountPaid: 0 },
+    ],
   },
   {
     fullName: "Rangga Wibowo",
@@ -168,11 +190,16 @@ const STUDENTS: StudentSeed[] = [
       sks: 21,
       status: "SELESAI" as const,
     })),
+    payments: [
+      { label: "SPP Semester 8", amount: 4500000, amountPaid: 4500000 },
+      { label: "Biaya Wisuda", amount: 1200000, amountPaid: 1200000 },
+    ],
   },
 ];
 
 async function main() {
   console.log("Membersihkan data lama...");
+  await db.payment.deleteMany();
   await db.semester.deleteMany();
   await db.stageHistory.deleteMany();
   await db.student.deleteMany();
@@ -221,10 +248,10 @@ async function main() {
   console.log("Membuat akun admin...");
   await db.user.create({
     data: {
-      email: "admin@pengawalankuliah.id",
+      email: "admin@madanischolar.id",
       passwordHash: await hashPassword("admin1234"),
       role: "ADMIN",
-      name: "Admin Pengawalan",
+      name: "Admin Madani Scholar",
     },
   });
 
@@ -273,6 +300,7 @@ async function main() {
             currentStage: s.stageKey,
             stageHistories: { create: histories },
             semesters: s.semesters ? { create: s.semesters } : undefined,
+            payments: s.payments ? { create: s.payments } : undefined,
           },
         },
       },

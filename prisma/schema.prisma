@@ -90,6 +90,7 @@ model Student {
 
   stageHistories StageHistory[]
   semesters      Semester[]
+  payments       Payment[]
 }
 
 model StageHistory {
@@ -112,4 +113,21 @@ model Semester {
   status   String  @default("BERJALAN") // BERJALAN | SELESAI
 
   @@unique([studentId, number])
+}
+
+// Catatan tagihan & pembayaran per mahasiswa. Ini murni catatan administratif oleh
+// admin (bukan gateway pembayaran) — mahasiswa hanya bisa melihat, tidak membayar
+// lewat aplikasi ini. Status lunas/nunggak dihitung dari amount vs amountPaid,
+// bukan disimpan sebagai flag terpisah, supaya tidak bisa saling tidak sinkron.
+model Payment {
+  id          String    @id @default(cuid())
+  studentId   String
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  label       String // mis. "Biaya Pendaftaran", "SPP Semester 1"
+  amount      Float // nominal tagihan
+  amountPaid  Float     @default(0) // nominal yang sudah dibayar/dicatat admin
+  dueDate     DateTime?
+  note        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
