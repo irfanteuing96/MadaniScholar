@@ -70,7 +70,16 @@ Cek status: `pm2 status` — aplikasi harus jalan di port 3000 (`pm2 logs madani
 
 ## 5. Konfigurasi Nginx + domain
 
-Arahkan dulu domain kamu (A record) ke IP VPS ini lewat pengaturan DNS domain kamu.
+**Belum punya domain sendiri?** Tetap bisa dapat HTTPS gratis pakai
+**[sslip.io](https://sslip.io)** — tanpa daftar apa pun. Layanan ini otomatis
+mengarahkan `<ip-pakai-strip>.sslip.io` ke IP itu sendiri. Misalnya IP VPS kamu
+`123.45.67.89`, domainnya jadi `123-45-67-89.sslip.io`. Karena itu nama domain
+"asli" (bukan cuma angka IP), Let's Encrypt (Certbot) mau menerbitkan sertifikat
+untuknya. Pakai domain itu di semua langkah bawah ini (ganti `domain-kamu.com`
+dengannya) — tidak perlu atur DNS A record sama sekali karena sudah otomatis.
+
+Kalau sudah punya domain sendiri, arahkan dulu domain itu (A record) ke IP VPS
+ini lewat pengaturan DNS domain kamu, lalu lanjut seperti biasa.
 
 ```bash
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/madani-scholar
@@ -86,8 +95,13 @@ sudo systemctl reload nginx
 sudo certbot --nginx -d domain-kamu.com -d www.domain-kamu.com
 ```
 
+(Kalau pakai sslip.io, cukup `-d 123-45-67-89.sslip.io` saja, tanpa `www.`.)
+
 Certbot otomatis atur perpanjangan sertifikat. Sekarang aplikasi bisa diakses via
 `https://domain-kamu.com`.
+
+Setelah HTTPS aktif, pastikan `.env` punya `USE_HTTPS="true"` (nilai default di
+template), lalu `pm2 restart madani-scholar` supaya cookie sesi kembali aman.
 
 ## Update aplikasi di kemudian hari
 

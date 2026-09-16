@@ -47,7 +47,11 @@ export async function setSessionCookie(token: string) {
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // Browser menolak cookie "Secure" di koneksi HTTP biasa (bukan HTTPS),
+    // jadi ini bisa dimatikan sementara lewat .env (USE_HTTPS="false") saat
+    // deploy awal tanpa domain/SSL. Default aman: selalu Secure kalau tidak
+    // diset eksplisit.
+    secure: process.env.USE_HTTPS !== "false",
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_DURATION_SECONDS,
