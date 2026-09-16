@@ -18,8 +18,13 @@ sudo apt install -y nodejs git nginx
 # PM2 (penjaga proses, auto-restart)
 sudo npm install -g pm2
 
-# Certbot untuk HTTPS gratis
-sudo apt install -y certbot python3-certbot-nginx
+# Certbot untuk HTTPS gratis — pakai snap (bukan apt), supaya tidak bentrok
+# dengan library Python lain yang sudah terpasang di sistem (error umum:
+# "AttributeError: module 'lib' has no attribute 'GEN_EMAIL'")
+sudo snap install core
+sudo snap refresh core
+sudo snap install --classic certbot
+sudo ln -s /snap/bin/certbot /usr/bin/certbot
 ```
 
 ## 2. Upload/clone project
